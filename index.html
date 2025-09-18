@@ -1,0 +1,81 @@
+<!doctype html>
+
+
+// IntersectionObserver to reveal elements when they enter the viewport
+const reveals = document.querySelectorAll('.reveal');
+if(!reduced && 'IntersectionObserver' in window){
+const io = new IntersectionObserver((entries, obs) => {
+entries.forEach(entry => {
+if(entry.isIntersecting){
+entry.target.classList.add('revealed');
+// Stagger children if present
+if(entry.target.dataset && entry.target.dataset.stagger){
+const children = entry.target.querySelectorAll('.reveal');
+children.forEach((c,i)=> setTimeout(()=> c.classList.add('revealed'), i*120));
+}
+obs.unobserve(entry.target);
+}
+});
+},{root:null,rootMargin:'-8% 0px',threshold:0.12});
+
+
+reveals.forEach(el => io.observe(el));
+} else {
+// If reduced motion OR no IO support, reveal everything instantly
+reveals.forEach(el => el.classList.add('revealed'));
+}
+
+
+// Scroll progress bar
+const progress = document.getElementById('progress');
+function updateProgress(){
+const h = document.documentElement;
+const scrollTop = h.scrollTop || document.body.scrollTop;
+const scrollHeight = h.scrollHeight - h.clientHeight;
+const pct = (scrollTop / (scrollHeight || 1)) * 100;
+progress.style.width = pct + '%';
+}
+updateProgress();
+window.addEventListener('scroll', () => { requestAnimationFrame(updateProgress); });
+
+
+// Parallax layer simple (subtle)
+const parallax = document.getElementById('parallaxLayer');
+function onScrollParallax(){
+const sc = window.scrollY || window.pageYOffset;
+// translate and scale subtly for depth
+parallax.style.transform = `translateX(-50%) translateY(${sc * -0.06}px) scale(${1 + sc*0.00012})`;
+// we also shift background-position for a layered effect
+parallax.style.backgroundPosition = `${50 - sc*0.02}% ${20 - sc*0.03}%`;
+}
+window.addEventListener('scroll', () => { requestAnimationFrame(onScrollParallax); });
+
+
+// Smooth anchor scrolling
+document.querySelectorAll('a[href^="#"]').forEach(a=>{
+a.addEventListener('click', (e)=>{
+const href = a.getAttribute('href');
+if(href === '#') return;
+const target = document.querySelector(href);
+if(target){
+e.preventDefault();
+target.scrollIntoView({behavior:'smooth',block:'start'});
+}
+});
+});
+
+
+// Accessibility: if reduced motion is preferred, remove transitions
+if(reduced){
+document.documentElement.style.setProperty('--reduced','1');
+document.querySelectorAll('.reveal').forEach(el=>el.style.transition='none');
+}
+
+
+// Tiny helper: add data-stagger if you want to stagger children on reveal
+// Example: document.querySelector('.card').dataset.stagger = true;
+
+
+</script>
+</body>
+</html>
