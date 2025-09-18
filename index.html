@@ -1,81 +1,70 @@
 <!doctype html>
-
-
-// IntersectionObserver to reveal elements when they enter the viewport
-const reveals = document.querySelectorAll('.reveal');
-if(!reduced && 'IntersectionObserver' in window){
-const io = new IntersectionObserver((entries, obs) => {
-entries.forEach(entry => {
-if(entry.isIntersecting){
-entry.target.classList.add('revealed');
-// Stagger children if present
-if(entry.target.dataset && entry.target.dataset.stagger){
-const children = entry.target.querySelectorAll('.reveal');
-children.forEach((c,i)=> setTimeout(()=> c.classList.add('revealed'), i*120));
-}
-obs.unobserve(entry.target);
-}
-});
-},{root:null,rootMargin:'-8% 0px',threshold:0.12});
-
-
-reveals.forEach(el => io.observe(el));
-} else {
-// If reduced motion OR no IO support, reveal everything instantly
-reveals.forEach(el => el.classList.add('revealed'));
+ctx.fillStyle='#94a3b8'; ctx.font='14px monospace'; ctx.fillText('Score: '+score,10,16);
 }
 
 
-// Scroll progress bar
-const progress = document.getElementById('progress');
-function updateProgress(){
-const h = document.documentElement;
-const scrollTop = h.scrollTop || document.body.scrollTop;
-const scrollHeight = h.scrollHeight - h.clientHeight;
-const pct = (scrollTop / (scrollHeight || 1)) * 100;
-progress.style.width = pct + '%';
-}
-updateProgress();
-window.addEventListener('scroll', () => { requestAnimationFrame(updateProgress); });
-
-
-// Parallax layer simple (subtle)
-const parallax = document.getElementById('parallaxLayer');
-function onScrollParallax(){
-const sc = window.scrollY || window.pageYOffset;
-// translate and scale subtly for depth
-parallax.style.transform = `translateX(-50%) translateY(${sc * -0.06}px) scale(${1 + sc*0.00012})`;
-// we also shift background-position for a layered effect
-parallax.style.backgroundPosition = `${50 - sc*0.02}% ${20 - sc*0.03}%`;
-}
-window.addEventListener('scroll', () => { requestAnimationFrame(onScrollParallax); });
-
-
-// Smooth anchor scrolling
-document.querySelectorAll('a[href^="#"]').forEach(a=>{
-a.addEventListener('click', (e)=>{
-const href = a.getAttribute('href');
-if(href === '#') return;
-const target = document.querySelector(href);
-if(target){
-e.preventDefault();
-target.scrollIntoView({behavior:'smooth',block:'start'});
-}
-});
-});
-
-
-// Accessibility: if reduced motion is preferred, remove transitions
-if(reduced){
-document.documentElement.style.setProperty('--reduced','1');
-document.querySelectorAll('.reveal').forEach(el=>el.style.transition='none');
+function step(){ frame++; if(frame % Math.max(1, Math.floor(60/speed)) !== 0) return; const head = {x:snake[0].x+dir.x, y:snake[0].y+dir.y};
+// wall wrap
+if(head.x < 0) head.x = cols-1; if(head.x >= cols) head.x=0; if(head.y<0) head.y=rows-1; if(head.y>=rows) head.y=0;
+// collision
+if(snake.some(s=>s.x===head.x && s.y===head.y)){ gameOver=true; showToast('Game Over'); scores.snake++; saveScores(scores); return; }
+snake.unshift(head);
+if(head.x===food.x && head.y===food.y){ score+=1; food=spawnFood(); if(score % 4 === 0) speed = Math.min(18, speed+1); }
+else snake.pop();
 }
 
 
-// Tiny helper: add data-stagger if you want to stagger children on reveal
-// Example: document.querySelector('.card').dataset.stagger = true;
+function loop(){ if(!gameOver) step(); draw(); if(!gameOver) requestAnimationFrame(loop); else draw(); }
 
 
+function keyHandler(e){ const m = {ArrowUp:{x:0,y:-1},ArrowDown:{x:0,y:1},ArrowLeft:{x:-1,y:0},ArrowRight:{x:1,y:0}}; if(m[e.key]){ const nd = m[e.key]; // prevent reverse
+if(snake.length>1 && snake[0].x+nd.x === snake[1].x && snake[0].y+nd.y === snake[1].y) return; dir = nd; }
+if(e.key === 'Escape') mountMenu(); }
+
+
+// Controls
+const resetBtn = document.createElement('button'); resetBtn.className='btn secondary'; resetBtn.textContent='Restart'; resetBtn.addEventListener('click', ()=>{ reset(); if(!gameOver){ /* continue */ } else { gameOver=false; loop(); } });
+container.appendChild(canvas); container.appendChild(document.createElement('div')).style.height='8px'; container.appendChild(resetBtn); playArea.appendChild(container);
+
+
+// start
+reset(); window.addEventListener('keydown', keyHandler); loop();
+
+
+// cleanup when switching
+container._cleanup = ()=>{ window.removeEventListener('keydown', keyHandler); };
+}
+
+
+// Mount helpers
+function mountMenu(){ // call cleanup if present
+const prev = playArea.firstChild; if(prev && prev._cleanup) prev._cleanup(); mountWelcome(); }
+
+
+function mountGame(key){ // cleanup
+const prev = playArea.firstChild; if(prev && prev._cleanup) prev._cleanup(); if(key==='ttt') mountTTT(); if(key==='mem') mountMemory(); if(key==='snake') mountSnake(); }
+
+
+// Wire buttons
+elAll('.game-btn').forEach(b=> b.addEventListener('click', ()=>{ const g = b.dataset.game; mountGame(g); }));
+el('#resetAll').addEventListener('click', ()=>{ if(confirm('Reset all saved scores?')){ scores = {...defaultScores}; saveScores(scores); showToast('Scores reset'); } });
+el('#randomBtn').addEventListener('click', ()=>{ const opts=['ttt','mem','snake']; const pick = opts[Math.floor(Math.random()*opts.length)]; mountGame(pick); showToast('Loading '+pick); });
+
+
+// Keyboard: Esc to menu
+window.addEventListener('keydown', (e)=>{ if(e.key === 'Escape') mountMenu(); });
+
+
+// Accessibility: prefers-reduced-motion -> reduce animations
+if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches){ document.querySelectorAll('.game-btn').forEach(n=>n.style.transition='none'); }
+
+
+// Ensure we save scores on page unload
+window.addEventListener('beforeunload', ()=> saveScores(scores));
+
+
+// Initial small animation
+setTimeout(()=> document.querySelectorAll('.game-btn').forEach((b,i)=> b.style.transform='translateY(0)'),120);
 </script>
 </body>
 </html>
